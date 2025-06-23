@@ -7,9 +7,11 @@ import pandas as pd
 import phik
 from phik import resources, report
 from sklearn.decomposition import PCA
+from sklearn.base import clone
 from sklearn.utils.class_weight import compute_class_weight
 from imblearn.over_sampling import SMOTE
 import shap
+from matplotlib.colors import LinearSegmentedColormap
 
 def divide_data(data, target_column):
     X = data.drop(columns=[target_column])
@@ -154,7 +156,7 @@ def plot_numeric_relationship(
     plt.tight_layout()
     plt.show()
 
-def evaluate_classification(y_test, y_pred, y_probs=None, model_name="Model"):
+def evaluate_classification(y_test, y_pred, y_probs=None, model_name="Model", enable_plot=True):
     """
     Evaluate classification performance with comprehensive metrics and visualizations
     
@@ -177,72 +179,74 @@ def evaluate_classification(y_test, y_pred, y_probs=None, model_name="Model"):
         'Recall': recall_score(y_test, y_pred, average='macro'),
         'Accuracy': (y_pred == y_test).mean()
     }
+
+    if enable_plot:
     
-    # Confusion matrix
-    conf_matrix = confusion_matrix(y_test, y_pred)
-    
-    # Create figure
-    plt.figure(figsize=(15, 6))
-    
-    # Plot 1: Confusion Matrix
-    plt.subplot(1, 2, 1)
-    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=['Predicted Negative', 'Predicted Positive'],
-                yticklabels=['Actual Negative', 'Actual Positive'])
-    plt.title(f'{model_name} - Confusion Matrix', fontsize=14)
-    plt.xlabel('Predicted Label', fontsize=12)
-    plt.ylabel('True Label', fontsize=12)
-    
-    # Plot 2: ROC Curve (only if probabilities are provided)
-    if y_probs is not None:
-        fpr, tpr, thresholds = roc_curve(y_test, y_probs)
-        plt.subplot(1, 2, 2)
-        plt.plot(fpr, tpr, color='darkorange', lw=2, 
-                 label=f'ROC curve (AUC = {metrics["ROC AUC"]:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate', fontsize=12)
-        plt.ylabel('True Positive Rate', fontsize=12)
-        plt.title('Receiver Operating Characteristic', fontsize=14)
-        plt.legend(loc="lower right")
-    
-    plt.tight_layout()
-    plt.show()
-    
-    # Create metrics table
-    metrics_df = pd.DataFrame({
-        'Metric': list(metrics.keys()),
-        'Value': [f'{val:.4f}' if isinstance(val, (int, float)) else 'N/A' 
-                 for val in metrics.values()]
-    })
-    
-    # Classification report
-    class_report = {
-        'Class': ['Positive', 'Negative'],
-        'Precision': [
-            precision_score(y_test, y_pred, pos_label=1),
-            precision_score(y_test, y_pred, pos_label=0)
-        ],
-        'Recall': [
-            recall_score(y_test, y_pred, pos_label=1),
-            recall_score(y_test, y_pred, pos_label=0)
-        ]
-    }
-    class_report_df = pd.DataFrame(class_report)
-    
-    # Display results
-    print("\n" + "="*60)
-    print(f"{model_name.upper()} EVALUATION".center(60))
-    print("="*60)
-    
-    print("\nMAIN METRICS:")
-    print(metrics_df.to_string(index=False))
-    
-    print("\n\nCLASSIFICATION REPORT:")
-    print(class_report_df.to_string(index=False))
-    
-    print("\n" + "="*60)
+        # Confusion matrix
+        conf_matrix = confusion_matrix(y_test, y_pred)
+        
+        # Create figure
+        plt.figure(figsize=(15, 6))
+        
+        # Plot 1: Confusion Matrix
+        plt.subplot(1, 2, 1)
+        sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', 
+                    xticklabels=['Predicted Negative', 'Predicted Positive'],
+                    yticklabels=['Actual Negative', 'Actual Positive'])
+        plt.title(f'{model_name} - Confusion Matrix', fontsize=14)
+        plt.xlabel('Predicted Label', fontsize=12)
+        plt.ylabel('True Label', fontsize=12)
+        
+        # Plot 2: ROC Curve (only if probabilities are provided)
+        if y_probs is not None:
+            fpr, tpr, thresholds = roc_curve(y_test, y_probs)
+            plt.subplot(1, 2, 2)
+            plt.plot(fpr, tpr, color='darkorange', lw=2, 
+                    label=f'ROC curve (AUC = {metrics["ROC AUC"]:.2f})')
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            plt.xlabel('False Positive Rate', fontsize=12)
+            plt.ylabel('True Positive Rate', fontsize=12)
+            plt.title('Receiver Operating Characteristic', fontsize=14)
+            plt.legend(loc="lower right")
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Create metrics table
+        metrics_df = pd.DataFrame({
+            'Metric': list(metrics.keys()),
+            'Value': [f'{val:.4f}' if isinstance(val, (int, float)) else 'N/A' 
+                    for val in metrics.values()]
+        })
+        
+        # Classification report
+        class_report = {
+            'Class': ['Positive', 'Negative'],
+            'Precision': [
+                precision_score(y_test, y_pred, pos_label=1),
+                precision_score(y_test, y_pred, pos_label=0)
+            ],
+            'Recall': [
+                recall_score(y_test, y_pred, pos_label=1),
+                recall_score(y_test, y_pred, pos_label=0)
+            ]
+        }
+        class_report_df = pd.DataFrame(class_report)
+        
+        # Display results
+        print("\n" + "="*60)
+        print(f"{model_name.upper()} EVALUATION".center(60))
+        print("="*60)
+        
+        print("\nMAIN METRICS:")
+        print(metrics_df.to_string(index=False))
+        
+        print("\n\nCLASSIFICATION REPORT:")
+        print(class_report_df.to_string(index=False))
+        
+        print("\n" + "="*60)
     
     return metrics
 
@@ -323,3 +327,139 @@ def visualize_decision_tree(model, feature_names, class_names=None,
               max_depth=max_depth)
     plt.title('Decision Tree Visualization')
     plt.show()
+
+def train_evaluate_model(model, model_name, X_train, y_train, X_test, y_test, seed=None):
+    # Set random seed if provided and model has the parameter
+    if seed is not None:
+        if hasattr(model, 'random_state'):
+            model.set_params(random_state=seed)
+        if hasattr(model, 'seed'):
+            model.set_params(seed=seed)
+    
+    # Train the model
+    model.fit(X_train, y_train)
+    
+    # Get predictions
+    y_pred = model.predict(X_test)
+    y_probs = model.predict_proba(X_test)[:, 1]  # For ROC curve
+    
+    # Evaluate
+    metrics = evaluate_classification(
+        y_test=y_test,
+        y_pred=y_pred,
+        y_probs=y_probs,
+        model_name=model_name,
+        enable_plot=False
+    )
+
+    return metrics
+
+def train_evaluate_models(models: list, X_train, y_train, X_test, y_test, seed=None):
+    """
+    Train and evaluate multiple classification models, then display a heatmap of the metrics.
+    
+    Parameters:
+    -----------
+    models : list
+        List of tuples containing (model_name, model_instance) where model_instance is a scikit-learn compatible classifier
+    X_train : array-like
+        Training features
+    y_train : array-like
+        Training labels
+    X_test : array-like
+        Test features
+    y_test : array-like
+        Test labels
+    preprocessor : Pipeline or Transformer, optional
+        Preprocessing pipeline to apply to the data before training
+    seed : int, optional
+        Random seed for reproducibility
+        
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame containing all evaluation metrics for all models
+    """
+    
+    # Dictionary to store all metrics
+    all_metrics = {}
+    
+    for model_name, model in models:
+        # Работаем с копией модели, чтобы не изменять исходные модели, переданные в качестве аргументов
+        current_model = clone(model)
+        
+        # Store metrics
+        all_metrics[model_name] = train_evaluate_model(current_model, model_name, X_train, y_train, X_test, y_test, seed)
+    
+    # Convert metrics to DataFrame
+    metrics_df = pd.DataFrame.from_dict(all_metrics, orient='index')
+    
+    # Plot heatmap
+    plt.figure(figsize=(8, 4))
+    sns.heatmap(metrics_df, cmap='RdBu_r', annot=True, fmt=".2f")
+    plt.title('Model Evaluation Metrics Comparison')
+    plt.tight_layout()
+    plt.show()
+    
+    return metrics_df
+
+def compare_metrics_heatmap(df1, df2, df1_name='DF1', df2_name='DF2', 
+                           figsize=(8, 4), annot_fontsize=10,
+                           title='Comparison of ML Metrics'):
+    """
+    Compare two DataFrames of ML metrics and plot a heatmap of their differences.
+    
+    Parameters:
+    - df1, df2: DataFrames containing metrics for ML algorithms (algorithms as index, metrics as columns)
+    - df1_name, df2_name: Names to display for each DataFrame in the comparison
+    - figsize: Size of the output figure
+    - annot_fontsize: Font size for annotations in heatmap
+    - title: Title for the plot
+    
+    Returns:
+    - A matplotlib Figure object
+    - The delta DataFrame showing the differences
+    """
+    
+    # Calculate delta (difference) between DataFrames
+    delta = df2 - df1
+    
+    # Create a custom red-white-green colormap
+    colors = ["#ff2700", "#ffffff", "#00b975"]  # Red -> White -> Green
+    cmap = LinearSegmentedColormap.from_list("rwg", colors)
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Plot heatmap
+    sns.heatmap(
+        delta, 
+        annot=True, 
+        fmt=".3f", 
+        cmap=cmap, 
+        center=0,
+        linewidths=.5, 
+        ax=ax,
+        annot_kws={"size": annot_fontsize},
+        cbar_kws={'label': f'Difference ({df2_name} - {df1_name})'}
+    )
+    
+    # Customize plot
+    ax.set_title(title, pad=20, fontsize=14)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+    
+    plt.tight_layout()
+    
+    return fig, delta
+
+
+def winsorize_outliers(df, column_name, lower_bound=None, upper_bound=None):
+    df = df.copy()
+    
+    if lower_bound is not None:
+        df.loc[df[column_name] < lower_bound, column_name] = lower_bound
+    if upper_bound is not None:
+        df.loc[df[column_name] > upper_bound, column_name] = upper_bound
+    
+    return df
